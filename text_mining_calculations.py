@@ -5,9 +5,14 @@ NOUN_TAGS = [pos.lower() for pos in [
     'NP1', 'NP2', 'NPD1', 'NPD2', 'NPM1', 'NPM2',
 ]]
 ADJ_TAGS = [pos.lower() for pos in ['JJ', 'JJR', 'JJT', 'JK']]
+PREP_TAGS = ['if', 'ii', 'io', 'iw', 'rp', 'rpk']
+
+TO_BE_TAGS = ['vb0', 'vbdr', 'vbdz', 'vbg', 'vbi', 'vbn', 'vbm', 'vbr', 'vbz']
+PARTICIPLE_TAGS = ['vhn', 'vvn', 'vvnk']
+ACTIVE_TAGS =  ['vv0', 'vvd', 'vvg', 'vvz', 'vvn']
 
 SENTENCE_END_WORDS = ['.', '?', '!']
-
+PHRASE_END_WORDS = ['.', '?', '!', ';']
 
 def just_words(df):
     """
@@ -145,3 +150,144 @@ def get_sub_conj(df):
     # create DataFrame of just subordinating conjunctions
     num_sub_conj = len(df.query('POS == "cs"'))
     return num_sub_conj/number_all
+
+def get_hopefully_count(df):
+    """
+    get the number of hopefully occurances
+    :param df: Input DataFrame
+    :type df: pd.DataFrame()
+    :type return: float
+    """
+    num_hopefully = len(df.query('word == "hopefully"'))
+    num_hopefully = num_hopefully + len(df.query('word == "Hopefully"'))
+    return num_hopefully
+
+def get_whom_count(df):
+    """
+    get the number of whom occurances
+    :param df: Input DataFrame
+    :type df: pd.DataFrame()
+    :type return: float
+    """
+    num_whom = len(df.query('POS == "pnqo"'))
+    #num_whom_word = len(df.query('lemma == "whom"'))
+    # if num_whom == num_whom_word:
+    #     print (f"whom equal {num_whom} <> {num_whom_word}")
+    # else:
+    #     print (f"whom not equal {num_whom} <> {num_whom_word}")
+    
+    prep_who_count = 0
+    prep_flag = False
+    # convert DataFrame to a list
+    rows = df.values
+
+    for word, lemma, pos in rows:
+        # check if item is punctuation
+        if pos in PREP_TAGS:
+            prep_flag = True
+        elif lemma == 'who':
+            if prep_flag == True:
+                prep_who_count = prep_who_count + 1
+                prep_flag = False
+        else:
+            prep_flag = False
+        
+    return num_whom, prep_who_count
+
+def get_that_which_count(df):
+    """
+    get the number of that and which
+    :param df: Input DataFrame
+    :type df: pd.DataFrame()
+    :type return: float
+    """
+    num_that = len(df.query('POS == "cst" & word == "that"'))
+    num_which = len(df.query('POS == "dd1" & word == "which"'))
+    return num_that, num_which
+
+def get_passive_active_percent(df):
+    """
+    get the percent of verbs that are passive instead of active
+    :param df: Input DataFrame
+    :type df: pd.DataFrame()
+    :type return: float
+    """
+    #get the length of a dataframe that only contains rows with POS active verb tag list
+    num_active = len(df[df.POS.isin(ACTIVE_TAGS)])
+    
+    #get the number of passive: combination of to-be followed by participle
+    num_passive = 0
+    to_be_flag = False
+    # convert DataFrame to a list
+    rows = df.values
+
+    for word, lemma, pos in rows:
+        # check if item is punctuation
+        if pos in TO_BE_TAGS:
+            to_be_flag = True
+        elif pos in PARTICIPLE_TAGS:
+            if to_be_flag == True:
+                num_passive = num_passive + 1
+                to_be_flag = False
+        else:
+            to_be_flag = False
+    
+    if (num_active + num_passive) != 0:
+        percent_passive = num_passive / (num_active + num_passive)
+    else:
+        percent_passive = 0
+        
+    return percent_passive
+
+def get_end_preposition(df):
+    """
+    get the number of phrases that end in prepositions
+    :param df: Input DataFrame
+    :type df: pd.DataFrame()
+    :type return: float
+    """
+    end_prep_count = 0
+    prep_flag = False
+    # convert DataFrame to a list
+    rows = df.values
+
+    for word, lemma, pos in rows:
+        # check if item is punctuation
+        if pos in PREP_TAGS:
+            prep_flag = True
+        elif word in PHRASE_END_WORDS:
+            if prep_flag == True:
+                end_prep_count = end_prep_count + 1
+                prep_flag = False
+        else:
+            prep_flag = False
+
+    return end_prep_count
+
+def get_sentence_initial_count(df):
+    """
+    get the number of sentences that begin with 'and' or 'but'
+    :param df: Input DataFrame
+    :type df: pd.DataFrame()
+    :type return: float
+    """
+    sentence_count = 0
+    punct_flag = False
+    initial_words = ['and','but']
+    # convert DataFrame to a list
+    rows = df.values
+
+    for word, lemma, pos in rows:
+        # check if item is punctuation
+        if word in SENTENCE_END_WORDS:
+            punct_flag = True
+        elif lemma in initial_words:
+            if punct_flag == True:
+                sentence_count = sentence_count + 1
+                punct_flag = False
+        elif word == "\'":
+            punct_flag = punct_flag
+        else:
+            punct_flag = False
+
+    return sentence_count

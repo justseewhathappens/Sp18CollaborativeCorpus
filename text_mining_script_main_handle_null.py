@@ -17,10 +17,17 @@ from text_mining_calculations import get_mean_word_len
 from text_mining_calculations import get_mean_sentence_len
 from text_mining_calculations import get_np_info
 from text_mining_calculations import get_sub_conj
+from text_mining_calculations import get_hopefully_count
+from text_mining_calculations import get_whom_count
+from text_mining_calculations import get_that_which_count
+from text_mining_calculations import get_end_preposition
+from text_mining_calculations import get_sentence_initial_count
+from text_mining_calculations import get_passive_active_percent
 
 #define global variable for paths and data files
-folder_path = 'C:/data/'
-jsonFileName = 'coha_text_mining_results'
+folder_path = 'C:/Users/jwolfgan/Documents/Personal/UT/4a - NPL/Collaborative Corpus/all data/data/'
+#folder_path = 'C:/Users/jwolfgan/Documents/Personal/UT/4a - NPL/Collaborative Corpus/data_test/'
+jsonFileName = 'coha_text_mining_results_phase2_'
 col_names = ['word','lemma','POS']
 null_character_replacement = ' '
 
@@ -54,6 +61,18 @@ def get_data_from_file(file_location):
     data_frame = pd.DataFrame(data=a, columns=col_names)
     return data_frame
 
+def calc_whom_who_percent (whom_count, who_count):
+    #calculate percentages of who/ whom
+    if (who_count + whom_count) != 0:
+        whom_percent = 100 * whom_count/ (who_count + whom_count)
+        who_percent = 100 * who_count/ (who_count + whom_count)
+    else:
+        whom_percent = 0
+        who_percent = 0
+            
+    return whom_percent, who_percent
+
+
 def main():
     #start by loading all data from the folder of txt files
     #declare a dataframe to build the data into
@@ -62,6 +81,9 @@ def main():
     all_files = os.listdir(folder_path)
     #wrap the iterator in tqdm for a progress bar
     all_files = tqdm(all_files)
+    
+    #initiate a count for number of hopefully in entire dataset
+    total_hopefully = 0
     
     #iterate through all files in the folder
     for file_name in all_files:
@@ -79,8 +101,10 @@ def main():
         
         #Calculate data of interest and build row to add to all results
         #first genre, year, and id
-        doc_data = [[doc_genre,doc_year,doc_id,0,0,0,0,0,0,0]]
-        resultColumns = ['genre','year','id','ttr','nouniness','mean_word_len','mean_sentence_len','mean_np_len', 'max_np_len', 'sub_conj']
+        doc_data = [[doc_genre,doc_year,doc_id,0,0,0,0,0,0,0,0,0,0,0]]
+        resultColumns = ['genre','year','id','ttr','nouniness','mean_word_len',
+                         'mean_sentence_len','mean_np_len', 'max_np_len', 'sub_conj',
+                         'whom_count', 'that_count','which_count','end_prep_count']
         doc_results = pd.DataFrame(data=doc_data, columns = resultColumns)
         #print(doc_results)
         
@@ -91,10 +115,27 @@ def main():
         doc_results['mean_sentence_len'] = get_mean_sentence_len(doc_text)
         doc_results['mean_np_len'], doc_results['max_np_len'] = get_np_info(doc_text)
         doc_results['sub_conj'] = get_sub_conj(doc_text)
+        doc_results['whom_count'], doc_results['who_count'] = get_whom_count(doc_text)
+        doc_results['that_count'], doc_results['which_count'] = get_that_which_count(doc_text)
+        doc_results['end_prep_count'] = get_end_preposition(doc_text)
+        doc_results['sent_init_count'] = get_sentence_initial_count(doc_text)
+        doc_results['passive_percent'] = get_passive_active_percent(doc_text)
+        doc_results['hopefully_count'] = get_hopefully_count(doc_text)
+        
+        #calculate who/whom percentages
+        doc_results['whom_percent'], doc_results['who_percent'] = calc_whom_who_percent(doc_results['whom_count'][0], doc_results['who_count'][0])
+
 
         #Append all data for this doc to the entire list
         doc_results_combined = doc_results_combined.append(doc_results, ignore_index= True)
         
+        #see how many hopefully there are in the whole dataset
+        total_hopefully = total_hopefully + doc_results['hopefully_count'][0]
+     
+        
+    #print total number of hopefully
+    print(f'The total number of hopefully in the dataset is: {total_hopefully}')
+    
     #Dump combined data to json file for easy loading into next script
     doc_results_combined_json = doc_results_combined.to_dict('index')
     #Create a unique file name using date and time so the file won't overwrite another
